@@ -1,0 +1,161 @@
+<%- include('partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+    <h2 class="text-primary fw-bold">Gestión de Materias</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMateria" onclick="prepararCrearMateria()">
+        + Nueva Materia
+    </button>
+</div>
+
+<div class="row" id="materias-container">
+    <div class="text-center w-100 mt-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modalMateria" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="modalMateriaTitle">Crear Materia</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formMateria">
+            <input type="hidden" id="materia-id">
+            <div class="mb-3">
+                <label for="nombre" class="form-label">Nombre de la Materia</label>
+                <input type="text" class="form-control" id="nombre" required>
+            </div>
+            <div class="mb-3">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <textarea class="form-control" id="descripcion" rows="3" required></textarea>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarMateria()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    let modalMateriaInstance;
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        modalMateriaInstance = new bootstrap.Modal(document.getElementById('modalMateria'));
+        cargarMaterias();
+    });
+
+    async function cargarMaterias() {
+        try {
+            const response = await fetch(`${window.API_URL}/materias`);
+            const materias = await response.json();
+            const container = document.getElementById('materias-container');
+            container.innerHTML = '';
+            
+            if(materias.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No hay materias registradas. ¡Crea la primera!</div>';
+                return;
+            }
+
+            materias.forEach(m => {
+                const col = document.createElement('div');
+                col.className = 'col-md-4 mb-4';
+                col.innerHTML = `
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title text-dark fw-bold">${m.nombre}</h5>
+                            <p class="card-text text-muted">${m.descripcion}</p>
+                        </div>
+                        <div class="card-footer bg-white border-top-0 d-flex justify-content-end pb-3">
+                            <button class="btn btn-sm btn-outline-primary me-2 px-3" onclick='prepararEditarMateria(${JSON.stringify(m)})'>Editar</button>
+                            <button class="btn btn-sm btn-outline-danger px-3" onclick="eliminarMateria(${m.id})">Eliminar</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'No se pudieron cargar las materias', 'error');
+        }
+    }
+
+    function prepararCrearMateria() {
+        document.getElementById('modalMateriaTitle').innerText = 'Crear Materia';
+        document.getElementById('formMateria').reset();
+        document.getElementById('materia-id').value = '';
+    }
+
+    function prepararEditarMateria(materia) {
+        document.getElementById('modalMateriaTitle').innerText = 'Editar Materia';
+        document.getElementById('materia-id').value = materia.id;
+        document.getElementById('nombre').value = materia.nombre;
+        document.getElementById('descripcion').value = materia.descripcion;
+        modalMateriaInstance.show();
+    }
+
+    async function guardarMateria() {
+        const id = document.getElementById('materia-id').value;
+        const nombre = document.getElementById('nombre').value;
+        const descripcion = document.getElementById('descripcion').value;
+
+        if(!nombre || !descripcion) {
+            return Swal.fire('Atención', 'Todos los campos son obligatorios', 'warning');
+        }
+
+        const data = { nombre, descripcion };
+        const url = id ? `${window.API_URL}/materias/${id}` : `${window.API_URL}/materias`;
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if(!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error al guardar');
+            }
+            
+            Swal.fire('Éxito', 'Materia guardada correctamente', 'success');
+            modalMateriaInstance.hide();
+            cargarMaterias();
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+    }
+
+    async function eliminarMateria(id) {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "Se eliminarán también las sesiones asociadas a esta materia.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch(`${window.API_URL}/materias/${id}`, { method: 'DELETE' });
+                if(!res.ok) throw new Error('Error al eliminar');
+                Swal.fire('Eliminada', 'La materia ha sido eliminada.', 'success');
+                cargarMaterias();
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo eliminar la materia', 'error');
+            }
+        }
+    }
+</script>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,262 @@
+<%- include('partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+    <h2 class="text-success fw-bold">Gestión de Sesiones</h2>
+    <button class="btn btn-success px-4" data-bs-toggle="modal" data-bs-target="#modalSesion" onclick="prepararCrearSesion()">
+        + Nueva Sesión
+    </button>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body bg-light rounded d-flex flex-wrap gap-3 align-items-end">
+        <div>
+            <label class="form-label fw-bold text-muted small">Filtrar por Estado</label>
+            <select class="form-select border-0 shadow-sm" id="filtro-estado" onchange="cargarSesiones()">
+                <option value="">Todas</option>
+                <option value="true">Completadas</option>
+                <option value="false">Pendientes</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label fw-bold text-muted small">Filtrar por Fecha</label>
+            <input type="date" class="form-control border-0 shadow-sm" id="filtro-fecha" onchange="cargarSesiones()">
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary shadow-sm" onclick="limpiarFiltros()">Limpiar Filtros</button>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive bg-white rounded shadow-sm p-3 border-top border-success border-4">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th class="text-secondary border-0">Materia</th>
+                <th class="text-secondary border-0">Fecha</th>
+                <th class="text-secondary border-0">Duración</th>
+                <th class="text-secondary border-0">Estado</th>
+                <th class="text-end text-secondary border-0">Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-sesiones" class="border-top-0">
+            <tr><td colspan="5" class="text-center py-5">
+                <div class="spinner-border text-success" role="status"></div>
+            </td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Sesion -->
+<div class="modal fade" id="modalSesion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-success text-white border-0">
+        <h5 class="modal-title" id="modalSesionTitle">Crear Sesión</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formSesion">
+            <input type="hidden" id="sesion-id">
+            <div class="mb-3">
+                <label for="materiaId" class="form-label">Materia</label>
+                <select class="form-select" id="materiaId" required></select>
+            </div>
+            <div class="mb-3">
+                <label for="fecha" class="form-label">Fecha</label>
+                <input type="date" class="form-control" id="fecha" required>
+            </div>
+            <div class="mb-3">
+                <label for="duracion" class="form-label">Duración (minutos)</label>
+                <input type="number" class="form-control" id="duracion" min="1" required>
+            </div>
+            <div class="mb-3 form-check" id="div-completado" style="display:none;">
+                <input type="checkbox" class="form-check-input" id="completado">
+                <label class="form-check-label" for="completado">Marcar como completada</label>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success px-4" onclick="guardarSesion()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+    let modalSesionInstance;
+    let materiasCache = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        modalSesionInstance = new bootstrap.Modal(document.getElementById('modalSesion'));
+        await cargarMaterias();
+        cargarSesiones();
+    });
+
+    async function cargarMaterias() {
+        try {
+            const res = await fetch(`${window.API_URL}/materias`);
+            materiasCache = await res.json();
+            const select = document.getElementById('materiaId');
+            select.innerHTML = '<option value="">Seleccione una materia...</option>';
+            materiasCache.forEach(m => {
+                select.innerHTML += `<option value="${m.id}">${m.nombre}</option>`;
+            });
+        } catch (error) {
+            console.error("Error cargando materias", error);
+        }
+    }
+
+    function limpiarFiltros() {
+        document.getElementById('filtro-estado').value = "";
+        document.getElementById('filtro-fecha').value = "";
+        cargarSesiones();
+    }
+
+    async function cargarSesiones() {
+        try {
+            const estado = document.getElementById('filtro-estado').value;
+            const fecha = document.getElementById('filtro-fecha').value;
+            
+            let query = [];
+            if(estado) query.push(`completado=${estado}`);
+            if(fecha) query.push(`fecha=${fecha}`);
+            
+            const queryString = query.length ? `?${query.join('&')}` : '';
+
+            const response = await fetch(`${window.API_URL}/sesiones${queryString}`);
+            const sesiones = await response.json();
+            
+            const tbody = document.getElementById('tabla-sesiones');
+            tbody.innerHTML = '';
+            
+            if(sesiones.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5 fw-bold">No se encontraron sesiones de estudio.</td></tr>';
+                return;
+            }
+
+            sesiones.forEach(s => {
+                const tr = document.createElement('tr');
+                const materiaNombre = s.materia ? s.materia.nombre : 'Desconocida';
+                const estadoBadge = s.completado 
+                    ? '<span class="badge badge-completado px-3 py-2 rounded-pill">Completada</span>' 
+                    : '<span class="badge badge-pendiente px-3 py-2 rounded-pill">Pendiente</span>';
+
+                tr.innerHTML = `
+                    <td class="fw-bold text-dark">${materiaNombre}</td>
+                    <td>${s.fecha}</td>
+                    <td>${s.duracion} min</td>
+                    <td>${estadoBadge}</td>
+                    <td class="text-end">
+                        ${!s.completado ? `<button class="btn btn-sm btn-success me-1 px-3 shadow-sm" onclick="marcarCompletada(${s.id})">✔ Completar</button>` : ''}
+                        <button class="btn btn-sm btn-outline-primary me-1 px-3 shadow-sm" onclick='prepararEditarSesion(${JSON.stringify(s)})'>Editar</button>
+                        <button class="btn btn-sm btn-outline-danger px-3 shadow-sm" onclick="eliminarSesion(${s.id})">Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'No se pudieron cargar las sesiones', 'error');
+        }
+    }
+
+    function prepararCrearSesion() {
+        document.getElementById('modalSesionTitle').innerText = 'Crear Sesión';
+        document.getElementById('formSesion').reset();
+        document.getElementById('sesion-id').value = '';
+        document.getElementById('materiaId').disabled = false;
+        document.getElementById('div-completado').style.display = 'none';
+    }
+
+    function prepararEditarSesion(sesion) {
+        document.getElementById('modalSesionTitle').innerText = 'Editar Sesión';
+        document.getElementById('sesion-id').value = sesion.id;
+        document.getElementById('materiaId').value = sesion.materiaId;
+        document.getElementById('materiaId').disabled = true; // No permitir cambiar la materia
+        document.getElementById('fecha').value = sesion.fecha;
+        document.getElementById('duracion').value = sesion.duracion;
+        
+        document.getElementById('div-completado').style.display = 'block';
+        document.getElementById('completado').checked = sesion.completado;
+        
+        modalSesionInstance.show();
+    }
+
+    async function guardarSesion() {
+        const id = document.getElementById('sesion-id').value;
+        const materiaId = document.getElementById('materiaId').value;
+        const fecha = document.getElementById('fecha').value;
+        const duracion = document.getElementById('duracion').value;
+        const completado = document.getElementById('completado').checked;
+
+        if(!materiaId || !fecha || !duracion) {
+            return Swal.fire('Atención', 'Todos los campos son obligatorios', 'warning');
+        }
+
+        const data = { materiaId: parseInt(materiaId), fecha, duracion: parseInt(duracion) };
+        if (id) data.completado = completado;
+
+        const url = id ? `${window.API_URL}/sesiones/${id}` : `${window.API_URL}/sesiones`;
+        const method = id ? 'PATCH' : 'POST';
+
+        try {
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if(!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Error al guardar');
+            }
+            
+            Swal.fire('Éxito', 'Sesión guardada correctamente', 'success');
+            modalSesionInstance.hide();
+            cargarSesiones();
+        } catch (error) {
+            Swal.fire('Error', error.message, 'error');
+        }
+    }
+
+    async function marcarCompletada(id) {
+        try {
+            const res = await fetch(`${window.API_URL}/sesiones/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completado: true })
+            });
+            if(!res.ok) throw new Error('Error al actualizar');
+            cargarSesiones();
+        } catch (error) {
+            Swal.fire('Error', 'No se pudo marcar como completada', 'error');
+        }
+    }
+
+    async function eliminarSesion(id) {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "Esta acción no se puede deshacer.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch(`${window.API_URL}/sesiones/${id}`, { method: 'DELETE' });
+                if(!res.ok) throw new Error('Error al eliminar');
+                Swal.fire('Eliminada', 'La sesión ha sido eliminada.', 'success');
+                cargarSesiones();
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo eliminar la sesión', 'error');
+            }
+        }
+    }
+</script>
+
+<%- include('partials/footer') %>

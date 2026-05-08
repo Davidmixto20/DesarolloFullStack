@@ -1,0 +1,63 @@
+<%- include('partials/header') %>
+
+<div class="row mt-4">
+    <div class="col-md-12 text-center mb-5">
+        <h1 class="display-4 fw-bold">Gestor de Estudio Inteligente</h1>
+        <p class="lead mt-3">Organiza tus materias y realiza un seguimiento de tus sesiones de estudio de manera eficiente.</p>
+        <hr class="my-4">
+        <a class="btn btn-primary btn-lg mx-2 px-4" href="/materias" role="button">📚 Gestionar Materias</a>
+        <a class="btn btn-success btn-lg mx-2 px-4" href="/sesiones" role="button">⏱️ Ver Sesiones</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 border-primary border-top border-4">
+            <div class="card-body text-center">
+                <h4 class="card-title text-primary">Materias Registradas</h4>
+                <div class="display-1 mt-3" id="total-materias">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 border-success border-top border-4">
+            <div class="card-body text-center">
+                <h4 class="card-title text-success">Estado de Sesiones</h4>
+                <div class="d-flex justify-content-around mt-4">
+                    <div>
+                        <h5 class="text-muted">Completadas</h5>
+                        <div class="display-4 text-success" id="total-sesiones-completadas">0</div>
+                    </div>
+                    <div>
+                        <h5 class="text-muted">Pendientes</h5>
+                        <div class="display-4 text-warning" id="total-sesiones-pendientes">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const resMaterias = await fetch(`${window.API_URL}/materias`);
+            const materias = await resMaterias.json();
+            document.getElementById('total-materias').innerText = materias.length;
+
+            const resSesiones = await fetch(`${window.API_URL}/sesiones`);
+            const sesiones = await resSesiones.json();
+            
+            const completadas = sesiones.filter(s => s.completado).length;
+            const pendientes = sesiones.length - completadas;
+
+            document.getElementById('total-sesiones-completadas').innerText = completadas;
+            document.getElementById('total-sesiones-pendientes').innerText = pendientes;
+
+        } catch (error) {
+            console.error("Error cargando dashboard:", error);
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>

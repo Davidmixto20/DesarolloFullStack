@@ -1,0 +1,23 @@
+body {
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.card {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border: none;
+    border-radius: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.navbar {
+    background: linear-gradient(135deg, #0062E6, #33AEFF) !important;
+}
+.badge-completado {
+    background-color: #28a745;
+}
+.badge-pendiente {
+    background-color: #ffc107;
+    color: #000;
+}
